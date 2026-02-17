@@ -2,12 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { Cog } from "lucide-react";
 
 interface Props {
   stlData: Uint8Array | null;
   resultMeta?: { runId: number; receivedAt: number } | null;
   isLoading?: boolean;
   loadingStatus?: string;
+  isOutdated?: boolean;
+  onRenderStl?: () => void;
+  canRenderStl?: boolean;
   onLog?: (message: string) => void;
 }
 
@@ -87,16 +91,29 @@ function FirstFrameProbe({
 
 function Spinner({ status }: { status?: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-muted border-t-foreground" />
-      {status && (
-        <div className="text-sm text-muted-foreground">{status}</div>
-      )}
+    <div className="flex h-full items-center justify-center">
+      <div className="rounded-2xl bg-slate-950/75 px-7 py-6 text-center shadow-2xl backdrop-blur-md">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-[3px] border-white/35 border-t-amber-300" />
+        {status && (
+          <div className="mt-4 text-sm font-medium tracking-wide text-slate-100">
+            {status}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-export function TerrainViewer({ stlData, resultMeta, isLoading, loadingStatus, onLog }: Props) {
+export function TerrainViewer({
+  stlData,
+  resultMeta,
+  isLoading,
+  loadingStatus,
+  isOutdated,
+  onRenderStl,
+  canRenderStl,
+  onLog,
+}: Props) {
   const [viewerReady, setViewerReady] = useState(false);
   const [renderCycle, setRenderCycle] = useState(0);
   const cycleCounterRef = useRef(0);
@@ -191,10 +208,14 @@ export function TerrainViewer({ stlData, resultMeta, isLoading, loadingStatus, o
 
   const showOverlay = Boolean(currentStl) && (Boolean(isLoading) || !viewerReady);
   const overlayStatus = !viewerReady && !isLoading ? "Rendering STL in Three.js…" : loadingStatus;
+  const showOutdatedOverlay = Boolean(currentStl) && Boolean(isOutdated) && !showOverlay;
 
   return (
     <div className="relative h-full">
-      <Canvas camera={{ position: [0, -150, 100], fov: 50, up: [0, 0, 1] }}>
+      <Canvas
+        camera={{ position: [0, -150, 100], fov: 50, up: [0, 0, 1] }}
+        className={isOutdated ? "blur-[1.5px] brightness-90 saturate-75 transition-all duration-300" : "transition-all duration-300"}
+      >
         <ambientLight intensity={0.4} />
         <directionalLight position={[5, -5, 10]} intensity={0.8} />
         <directionalLight position={[-5, 5, 5]} intensity={0.3} />
@@ -207,8 +228,29 @@ export function TerrainViewer({ stlData, resultMeta, isLoading, loadingStatus, o
         <OrbitControls makeDefault />
       </Canvas>
       {showOverlay && (
-        <div className="pointer-events-none absolute inset-0 bg-background/35 backdrop-blur-[1px]">
+        <div className="pointer-events-none absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]">
           <Spinner status={overlayStatus} />
+        </div>
+      )}
+      {showOutdatedOverlay && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/30 backdrop-blur-[2px]">
+          <div className="mx-4 max-w-sm rounded-2xl bg-slate-950/75 px-5 py-4 text-center shadow-2xl">
+            <div className="text-sm font-semibold text-amber-100">
+              Model preview is outdated
+            </div>
+            <div className="mt-1 text-xs text-slate-200">
+              Terrain changed. Render a new STL to sync this 3D preview.
+            </div>
+            <button
+              type="button"
+              onClick={onRenderStl}
+              disabled={!canRenderStl}
+              className="mt-3 inline-flex items-center gap-2 rounded-md bg-amber-300 px-3.5 py-1.5 text-xs font-semibold text-slate-900 shadow-md transition-colors hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Cog className="h-3.5 w-3.5" />
+              Render to STL
+            </button>
+          </div>
         </div>
       )}
     </div>

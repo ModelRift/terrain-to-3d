@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { TerrainControls, type TerrainParams } from "@/components/terrain-controls";
 import { TerrainViewer } from "@/components/terrain-viewer";
 import { ScadViewer } from "@/components/scad-viewer";
@@ -9,6 +9,7 @@ import { heightmapToDataUrl } from "@/lib/heightmap";
 import { heightmapToDat } from "@/lib/scad-template";
 import { useOpenscadWorker } from "@/hooks/use-openscad-worker";
 import { downloadBlob } from "@/lib/download";
+import { loadDemoTerrainAssets } from "@/lib/demo-assets";
 import { Download, Box, FileCode } from "lucide-react";
 
 const DEFAULT_PARAMS: TerrainParams = {
@@ -37,18 +38,86 @@ export default function App() {
   const [elevMax, setElevMax] = useState<number | null>(null);
   const [heightmapResult, setHeightmapResult] = useState<HeightmapResult | null>(null);
   const [step1Done, setStep1Done] = useState(false);
+  const [demoStlData, setDemoStlData] = useState<Uint8Array | null>(null);
+  const [isLoadingDemo, setIsLoadingDemo] = useState(true);
   const [viewerLogs, setViewerLogs] = useState<string[]>([]);
+  const [terrainRevision, setTerrainRevision] = useState(0);
+  const [compiledRevision, setCompiledRevision] = useState(0);
+  const [pendingCompileRevision, setPendingCompileRevision] = useState<number | null>(null);
 
   // Step 2 state
   const { compile, stlData, lastResultMeta, scadCode, status: scadStatus, isCompiling, error: scadError, logs: scadLogs } =
     useOpenscadWorker();
 
   const [activeTab, setActiveTab] = useState<ViewTab>("3d");
+  const visibleStlData = stlData ?? demoStlData;
+  const hasRenderableTerrain = Boolean(heightmapResult) && step1Done;
+  const isModelOutdated =
+    Boolean(visibleStlData) &&
+    hasRenderableTerrain &&
+    terrainRevision !== compiledRevision;
 
-  const isGenerating = isFetching || isCompiling;
-  const status = isFetching ? (fetchLogs[fetchLogs.length - 1] ?? "") : scadStatus;
+  const isGenerating = isFetching || isCompiling || (isLoadingDemo && !visibleStlData);
+  const status =
+    isFetching
+      ? (fetchLogs[fetchLogs.length - 1] ?? "")
+      : isLoadingDemo && !visibleStlData
+        ? "Loading bundled demo terrain…"
+        : scadStatus;
   const error = fetchError || scadError;
   const allLogs = [...fetchLogs, ...scadLogs, ...viewerLogs];
+
+  useEffect(() => {
+    if (!stlData || pendingCompileRevision == null) return;
+    setCompiledRevision(pendingCompileRevision);
+    setPendingCompileRevision(null);
+  }, [stlData, pendingCompileRevision]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const bootstrapDemo = async () => {
+      setFetchLogs((prev) => [...prev, "Loading bundled demo terrain…"]);
+      try {
+        const demo = await loadDemoTerrainAssets();
+        if (cancelled) return;
+
+        const dataUrl = await heightmapToDataUrl(demo.heightmap, demo.width, demo.height);
+        if (cancelled) return;
+
+        setDemoStlData(demo.stlData);
+        setHeightmapResult({
+          heightmap: demo.heightmap,
+          width: demo.width,
+          height: demo.height,
+          elevMin: demo.elevMin,
+          elevMax: demo.elevMax,
+        });
+        setPreviewUrl(dataUrl);
+        setElevMin(null);
+        setElevMax(null);
+        setStep1Done(true);
+        setTerrainRevision(0);
+        setCompiledRevision(0);
+        setPendingCompileRevision(null);
+        setFetchLogs((prev) => [
+          ...prev,
+          `Demo ready: ${demo.width}x${demo.height} heightmap, ${(demo.stlData.byteLength / (1024 * 1024)).toFixed(1)} MB STL`,
+        ]);
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : String(err);
+        setFetchLogs((prev) => [...prev, `Demo preload skipped: ${message}`]);
+      } finally {
+        if (!cancelled) setIsLoadingDemo(false);
+      }
+    };
+
+    void bootstrapDemo();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Step 1: Download tiles + generate heightmap
   const handleStep1 = useCallback(async () => {
@@ -85,6 +154,7 @@ export default function App() {
 
       const dataUrl = await heightmapToDataUrl(result.heightmap, result.width, result.height);
       setPreviewUrl(dataUrl);
+      setTerrainRevision((prev) => prev + 1);
       setIsFetching(false);
       setStep1Done(true);
     } catch (err) {
@@ -95,7 +165,8 @@ export default function App() {
 
   // Step 2: Compile STL in worker
   const handleStep2 = useCallback(() => {
-    if (!heightmapResult) return;
+    if (!heightmapResult || !step1Done || isCompiling || isFetching) return;
+    setPendingCompileRevision(terrainRevision);
     compile({
       heightmap: heightmapResult.heightmap,
       width: heightmapResult.width,
@@ -112,15 +183,16 @@ export default function App() {
         elevMax: heightmapResult.elevMax,
       },
     });
-  }, [heightmapResult, params, compile]);
+  }, [heightmapResult, step1Done, isCompiling, isFetching, terrainRevision, params, compile]);
 
   const handleViewerLog = useCallback((message: string) => {
     setViewerLogs((prev) => [...prev, message]);
   }, []);
 
   const handleDownloadStl = useCallback(() => {
-    if (stlData) downloadBlob(stlData, "terrain.stl", "model/stl");
-  }, [stlData]);
+    if (!visibleStlData) return;
+    downloadBlob(visibleStlData, stlData ? "terrain.stl" : "terrain_montblanc.stl", "model/stl");
+  }, [stlData, visibleStlData]);
 
   const handleDownloadScad = useCallback(() => {
     if (scadCode) {
@@ -209,7 +281,7 @@ export default function App() {
             {activeTab === "3d" ? (
               <button
                 onClick={handleDownloadStl}
-                disabled={!stlData}
+                disabled={!visibleStlData}
                 className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -232,10 +304,13 @@ export default function App() {
         <div className="flex-1">
           {activeTab === "3d" ? (
             <TerrainViewer
-              stlData={stlData}
+              stlData={visibleStlData}
               resultMeta={lastResultMeta}
               isLoading={isGenerating}
               loadingStatus={status}
+              isOutdated={isModelOutdated}
+              onRenderStl={handleStep2}
+              canRenderStl={hasRenderableTerrain && !isFetching && !isCompiling}
               onLog={handleViewerLog}
             />
           ) : (
