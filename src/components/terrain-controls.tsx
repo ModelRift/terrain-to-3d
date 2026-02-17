@@ -26,7 +26,7 @@ const PRESETS = [
   { label: "Mont Blanc", lat: 45.8326, lon: 6.8652 },
   { label: "Mt. Everest", lat: 27.9881, lon: 86.925 },
   { label: "K2", lat: 35.88, lon: 76.5151 },
-  { label: "Mariana Trench", lat: 11.3493, lon: 142.1996 },
+  { label: "Matterhorn", lat: 45.9766, lon: 7.6585 },
   { label: "Grand Canyon", lat: 36.1069, lon: -112.1129 },
 ] as const;
 
