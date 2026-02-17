@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Cog } from "lucide-react";
 
 interface Props {
@@ -22,6 +24,69 @@ interface ParseInfo {
   parseEndAt: number;
 }
 
+function buildTerrainVertexColors(geometry: THREE.BufferGeometry) {
+  const positions = geometry.getAttribute("position");
+  if (!positions) return;
+  const normals = geometry.getAttribute("normal");
+  geometry.computeBoundingBox();
+  const bounds = geometry.boundingBox;
+  if (!bounds) return;
+
+  const zRange = Math.max(bounds.max.z - bounds.min.z, 1e-6);
+  const colors = new Float32Array(positions.count * 3);
+  const rockLow = new THREE.Color("#4c443b");
+  const rockMid = new THREE.Color("#6a6056");
+  const rockHigh = new THREE.Color("#83786d");
+  const cliffRock = new THREE.Color("#3a3531");
+  const snowBright = new THREE.Color("#f3f7fc");
+  const snowShade = new THREE.Color("#d6dee8");
+  const mixed = new THREE.Color();
+  const snowMixed = new THREE.Color();
+
+  for (let i = 0; i < positions.count; i++) {
+    const z = positions.getZ(i);
+    const height01 = THREE.MathUtils.clamp((z - bounds.min.z) / zRange, 0, 1);
+    const slope = normals ? 1 - Math.min(1, Math.abs(normals.getZ(i))) : 0;
+
+    // Base rock gradient with colder tones, avoiding green lowlands.
+    if (height01 < 0.65) {
+      mixed.copy(rockLow).lerp(rockMid, height01 / 0.65);
+    } else {
+      mixed.copy(rockMid).lerp(rockHigh, (height01 - 0.65) / 0.35);
+    }
+
+    // Steep slopes expose darker cliff rock.
+    mixed.lerp(cliffRock, THREE.MathUtils.smoothstep(slope, 0.22, 0.92) * 0.7);
+
+    // Snow prefers higher elevations and gentler surfaces.
+    const snowFromHeight = THREE.MathUtils.smoothstep(height01, 0.58, 0.95);
+    const snowFromFlatness = 1 - THREE.MathUtils.smoothstep(slope, 0.2, 0.82);
+    const snowAmount = THREE.MathUtils.clamp(
+      snowFromHeight * (0.45 + 0.75 * snowFromFlatness),
+      0,
+      1
+    );
+    snowMixed.copy(snowShade).lerp(snowBright, 1 - slope * 0.55);
+    mixed.lerp(snowMixed, snowAmount);
+
+    colors[i * 3] = mixed.r;
+    colors[i * 3 + 1] = mixed.g;
+    colors[i * 3 + 2] = mixed.b;
+  }
+
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+}
+
+function fixTerrainGeometry(rawGeometry: THREE.BufferGeometry) {
+  const welded = mergeVertices(rawGeometry, 1e-5);
+  rawGeometry.dispose();
+  welded.computeVertexNormals();
+  welded.normalizeNormals();
+  welded.center();
+  buildTerrainVertexColors(welded);
+  return welded;
+}
+
 function StlMesh({
   stlData,
   cycle,
@@ -38,9 +103,7 @@ function StlMesh({
       stlData.byteOffset,
       stlData.byteOffset + stlData.byteLength
     ) as ArrayBuffer;
-    const geo = loader.parse(buffer);
-    geo.computeVertexNormals();
-    geo.center();
+    const geo = fixTerrainGeometry(loader.parse(buffer));
     const positions = geo.getAttribute("position");
     return {
       geometry: geo,
@@ -62,8 +125,13 @@ function StlMesh({
   }, [geometry]);
 
   return (
-    <mesh geometry={geometry}>
-      <meshStandardMaterial color="#b8860b" flatShading />
+    <mesh geometry={geometry} castShadow receiveShadow>
+      <meshStandardMaterial
+        vertexColors
+        roughness={0.94}
+        metalness={0}
+        envMapIntensity={0.35}
+      />
     </mesh>
   );
 }
@@ -213,19 +281,53 @@ export function TerrainViewer({
   return (
     <div className="relative h-full">
       <Canvas
+        shadows
         camera={{ position: [0, -150, 100], fov: 50, up: [0, 0, 1] }}
+        onCreated={({ gl, scene }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.05;
+          gl.outputColorSpace = THREE.SRGBColorSpace;
+          gl.shadowMap.enabled = true;
+          gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          scene.background = new THREE.Color("#d9e6f0");
+          scene.fog = new THREE.FogExp2("#d9e6f0", 0.0024);
+        }}
         className={isOutdated ? "blur-[1.5px] brightness-90 saturate-75 transition-all duration-300" : "transition-all duration-300"}
       >
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, -5, 10]} intensity={0.8} />
-        <directionalLight position={[-5, 5, 5]} intensity={0.3} />
+        <hemisphereLight args={["#eaf3ff", "#55684c", 0.45]} />
+        <directionalLight
+          castShadow
+          position={[130, -160, 190]}
+          intensity={1.45}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-bias={-0.00008}
+          shadow-normalBias={0.02}
+          shadow-camera-near={20}
+          shadow-camera-far={600}
+          shadow-camera-left={-140}
+          shadow-camera-right={140}
+          shadow-camera-top={140}
+          shadow-camera-bottom={-140}
+        />
+        <directionalLight position={[-80, 90, 120]} intensity={0.32} />
+        <mesh position={[0, 0, -50]} receiveShadow>
+          <planeGeometry args={[520, 520]} />
+          <shadowMaterial opacity={0.17} />
+        </mesh>
         <StlMesh
           stlData={currentStl}
           cycle={renderCycle}
           onParsed={handleParsed}
         />
         <FirstFrameProbe cycle={renderCycle} onFirstFrame={handleFirstFrame} />
-        <OrbitControls makeDefault />
+        <OrbitControls
+          makeDefault
+          enableDamping
+          dampingFactor={0.08}
+          minDistance={35}
+          maxDistance={500}
+        />
       </Canvas>
       {showOverlay && (
         <div className="pointer-events-none absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]">
