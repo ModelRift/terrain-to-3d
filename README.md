@@ -31,7 +31,7 @@ UI is built using React and Shadcn. Three.js is used as a model viewer.
 docker compose up --build -d
 ```
 
-Open [http://localhost:8080](http://localhost:8080).
+Open [http://localhost:8083](http://localhost:8083).
 
 
 ### Development (Docker Compose)
