@@ -1,0 +1,11 @@
+name: terrain-to-3d
+
+services:
+  terrain-to-3d:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: prod
+    ports:
+      - "8080:80"
+    restart: unless-stopped

@@ -1,0 +1,23 @@
+name: terrain-to-3d
+
+services:
+  terrain-to-3d:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: dev
+    ports:
+      - "5176:5173"
+    working_dir: /app/web
+    command: sh -c "pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0 --port 5173"
+    volumes:
+      - ./:/app/web
+      - web_node_modules:/app/web/node_modules
+      - web_pnpm_store:/pnpm/store
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - CI=true
+
+volumes:
+  web_node_modules:
+  web_pnpm_store:

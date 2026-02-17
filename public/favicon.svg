@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mountain icon">
+  <rect width="64" height="64" fill="#000"/>
+  <path
+    d="M0 48 L20 27 L29 35 L41 18 L64 48"
+    fill="none"
+    stroke="#fff"
+    stroke-width="4"
+    stroke-linecap="butt"
+    stroke-linejoin="miter"
+  />
+</svg>
