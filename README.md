@@ -2,6 +2,8 @@
 
 This is a simple browser-based editor which creates printable 3D terrain models (`.stl`) from just latitude and longitude input.
 
+Demo: [https://terrain.modelrift.com](https://terrain.modelrift.com)
+
 Built by [ModelRift](https://modelrift.com) team.
 ModelRift is an AI-enhanced browser-based IDE for OpenSCAD.
 
@@ -23,19 +25,23 @@ UI is built using React and Shadcn. Three.js is used as a model viewer.
 - Base thickness
 
 ## How To Run
+
+### Docker Compose
+```bash
+docker compose up --build -d
+```
+
+Open [http://localhost:8080](http://localhost:8080).
+
+
 ### Development (Docker Compose)
+Big map rendering is slow in dev mode!
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
 Open [http://localhost:5176](http://localhost:5176).
 
-### Production-like (Docker Compose)
-```bash
-docker compose up --build -d
-```
-
-Open [http://localhost:8080](http://localhost:8080).
 
 ### Development (Local pnpm)
 ```bash
