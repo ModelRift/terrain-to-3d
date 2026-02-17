@@ -10,7 +10,7 @@ import { heightmapToDat } from "@/lib/scad-template";
 import { useOpenscadWorker } from "@/hooks/use-openscad-worker";
 import { downloadBlob } from "@/lib/download";
 import { loadDemoTerrainAssets } from "@/lib/demo-assets";
-import { Download, Box, FileCode } from "lucide-react";
+import { Download, Box, FileCode, Github, Star } from "lucide-react";
 
 const DEFAULT_PARAMS: TerrainParams = {
   centerLat: 27.9881,
@@ -217,7 +217,19 @@ export default function App() {
     <div className="flex h-screen">
       {/* Sidebar */}
       <aside className="flex h-screen w-80 shrink-0 flex-col overflow-y-auto border-r border-border p-4">
-        <h1 className="text-sm font-semibold">3D Terrain Generator</h1>
+        <header className="flex items-center justify-between gap-2">
+          <h1 className="text-sm font-semibold">3D Terrain Generator</h1>
+          <a
+            href="https://github.com/ModelRift/terrain-to-3d/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Star project on GitHub"
+            className="inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-300/80 bg-white/75 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition-colors hover:border-slate-400 hover:bg-white hover:text-slate-900"
+          >
+            <Star className="h-3 w-3" />
+            Star on GitHub
+          </a>
+        </header>
         <div className="mt-4 space-y-4">
           <TerrainControls
             params={params}
@@ -235,7 +247,7 @@ export default function App() {
             onDownloadDat={handleDownloadDat}
           />
         </div>
-        <footer className="mt-auto border-t border-border pt-3 text-xs text-muted-foreground">
+        <footer className="mt-auto space-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
           <a
             href="https://modelrift.com"
             target="_blank"
@@ -246,6 +258,15 @@ export default function App() {
             <span>
               terrain-to-3d v{APP_VERSION}. Built by <span className="font-medium">ModelRift</span> team
             </span>
+          </a>
+          <a
+            href="https://github.com/ModelRift/terrain-to-3d/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 hover:text-foreground transition-colors"
+          >
+            <Github className="h-3.5 w-3.5" />
+            <span>Source code on GitHub</span>
           </a>
         </footer>
       </aside>
