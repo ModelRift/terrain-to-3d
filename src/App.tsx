@@ -18,7 +18,7 @@ const DEFAULT_PARAMS: TerrainParams = {
   areaKm: 20,
   outputPx: 200,
   modelMm: 100,
-  zExag: 2.5,
+  zExag: 1.8,
   baseMm: 3,
   zoom: 12,
 };
