@@ -1,7 +1,7 @@
 import type { HeightmapResult } from "./terrain";
 
-const DEMO_HEIGHTMAP_URL = "/assets/terrain/heightmap_montblanc.dat";
-const DEMO_STL_URL = "/assets/terrain/terrain_montblanc.stl";
+const DEMO_HEIGHTMAP_URL = "/assets/terrain/heightmap_everest.dat";
+const DEMO_STL_URL = "/assets/terrain/terrain_everest.stl";
 
 export interface DemoTerrainAssets extends HeightmapResult {
   stlData: Uint8Array;

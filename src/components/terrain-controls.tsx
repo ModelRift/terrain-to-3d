@@ -25,6 +25,8 @@ export interface TerrainParams {
 const PRESETS = [
   { label: "Mont Blanc", lat: 45.8326, lon: 6.8652 },
   { label: "Mt. Everest", lat: 27.9881, lon: 86.925 },
+  { label: "K2", lat: 35.88, lon: 76.5151 },
+  { label: "Mariana Trench", lat: 11.3493, lon: 142.1996 },
   { label: "Grand Canyon", lat: 36.1069, lon: -112.1129 },
 ] as const;
 
@@ -53,6 +55,9 @@ export function TerrainControls({
 
   const applyPreset = (preset: (typeof PRESETS)[number]) =>
     onChange({ ...params, centerLat: preset.lat, centerLon: preset.lon });
+  const isPresetActive = (preset: (typeof PRESETS)[number]) =>
+    Math.abs(params.centerLat - preset.lat) < 1e-6 &&
+    Math.abs(params.centerLon - preset.lon) < 1e-6;
 
   return (
     <div className="space-y-4">
@@ -72,7 +77,11 @@ export function TerrainControls({
                 <button
                   key={p.label}
                   onClick={() => applyPreset(p)}
-                  className="rounded-md border border-border px-2 py-0.5 text-xs hover:bg-muted transition-colors"
+                  className={`rounded-md border px-2 py-0.5 text-xs transition-colors ${
+                    isPresetActive(p)
+                      ? "border-foreground bg-muted text-foreground"
+                      : "border-border hover:bg-muted"
+                  }`}
                 >
                   {p.label}
                 </button>

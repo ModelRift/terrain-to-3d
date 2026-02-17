@@ -13,8 +13,8 @@ import { loadDemoTerrainAssets } from "@/lib/demo-assets";
 import { Download, Box, FileCode } from "lucide-react";
 
 const DEFAULT_PARAMS: TerrainParams = {
-  centerLat: 45.8326,
-  centerLon: 6.8652,
+  centerLat: 27.9881,
+  centerLon: 86.925,
   areaKm: 20,
   outputPx: 200,
   modelMm: 100,
@@ -96,13 +96,14 @@ export default function App() {
         setPreviewUrl(dataUrl);
         setElevMin(null);
         setElevMax(null);
-        setStep1Done(true);
+        // Demo assets are for preview only; keep Step 2 disabled until a real terrain download.
+        setStep1Done(false);
         setTerrainRevision(0);
         setCompiledRevision(0);
         setPendingCompileRevision(null);
         setFetchLogs((prev) => [
           ...prev,
-          `Demo ready: ${demo.width}x${demo.height} heightmap, ${(demo.stlData.byteLength / (1024 * 1024)).toFixed(1)} MB STL`,
+          `Demo ready: ${demo.width}x${demo.height} heightmap, ${(demo.stlData.byteLength / (1024 * 1024)).toFixed(1)} MB STL (click "Download Terrain" to enable STL generation)`,
         ]);
       } catch (err) {
         if (cancelled) return;
@@ -191,7 +192,7 @@ export default function App() {
 
   const handleDownloadStl = useCallback(() => {
     if (!visibleStlData) return;
-    downloadBlob(visibleStlData, stlData ? "terrain.stl" : "terrain_montblanc.stl", "model/stl");
+    downloadBlob(visibleStlData, stlData ? "terrain.stl" : "terrain_everest.stl", "model/stl");
   }, [stlData, visibleStlData]);
 
   const handleDownloadScad = useCallback(() => {
