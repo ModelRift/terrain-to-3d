@@ -4,7 +4,7 @@ ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 
 RUN corepack enable
-WORKDIR /app/web
+WORKDIR /app
 
 FROM base AS dev
 
@@ -25,7 +25,7 @@ RUN pnpm build
 FROM nginx:1.27-alpine AS prod
 
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/web/dist /usr/share/nginx/html
+COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
