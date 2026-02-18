@@ -9,11 +9,17 @@ ModelRift is an AI-enhanced browser-based IDE for OpenSCAD.
 
 Uses awesome [OpenSCAD WASM build by @DSchroer](https://github.com/DSchroer/openscad-wasm) so all the magic happens right in your browser.
 
+
 UI is built using React and Shadcn. Three.js is used as a model viewer.
 
 ## How it works
-- Step 1 downloads elevation tiles and builds a grayscale heightmap of the chosen lat/long.
+- Step 1 downloads elevation tiles and builds a grayscale heightmap of the chosen lat/long. 
+Terrain data is downloaded from [this public dataset](https://aws.amazon.com/blogs/publicsector/announcing-terrain-tiles-on-aws-a-qa-with-mapzen/).
+[Interesting read on how the terrain tiles are encoded](https://github.com/mapzen/terrarium)
+
 - Step 2 generates OpenSCAD code and compiles an STL in the browser (WASM worker).
+
+- Three.js renders the produced .stl model in a browser, with a beautiful lightning applied.
 
 ## What you can control
 - Center point: latitude and longitude
