@@ -249,21 +249,30 @@ export default function App() {
         </div>
         <footer className="mt-auto space-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
           <a
+            href="https://github.com/ModelRift/terrain-to-3d/"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 hover:text-foreground transition-colors"
+          >
+            <img src="/favicon6.svg" alt="terrain-to-3D logo" className="h-4 w-4" />
+            <span>terrain-to-3d v{APP_VERSION}.</span>
+          </a>
+          <a
             href="https://modelrift.com"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 hover:text-foreground transition-colors"
+            className="flex items-center gap-2 hover:text-foreground transition-colors"
           >
-            <img src="/favicon.svg" alt="terrain-to-3D logo" className="h-4 w-4" />
+            <img src="/modelrift-logo.svg" alt="ModelRift logo" className="h-4 w-4" />
             <span>
-              terrain-to-3d v{APP_VERSION}. Built by <span className="font-medium">ModelRift</span> team
+              Built by <span className="font-medium">ModelRift</span> team
             </span>
           </a>
           <a
             href="https://github.com/ModelRift/terrain-to-3d/"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 hover:text-foreground transition-colors"
+            className="flex items-center gap-2 hover:text-foreground transition-colors"
           >
             <Github className="h-3.5 w-3.5" />
             <span>Source code on GitHub</span>
