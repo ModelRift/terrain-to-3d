@@ -17,6 +17,11 @@ CMD ["pnpm", "dev", "--host", "0.0.0.0", "--port", "5173"]
 
 FROM base AS build
 
+ARG VITE_APP_VERSION=dev
+ARG VITE_GIT_SHA=
+ENV VITE_APP_VERSION=$VITE_APP_VERSION
+ENV VITE_GIT_SHA=$VITE_GIT_SHA
+
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . ./

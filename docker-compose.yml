@@ -6,6 +6,9 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: prod
+      args:
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-dev}
+        VITE_GIT_SHA: ${VITE_GIT_SHA:-}
     ports:
       - "127.0.0.1:8083:80"
     restart: unless-stopped
