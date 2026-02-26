@@ -12,7 +12,6 @@ import { downloadBlob } from "@/lib/download";
 import { loadDemoTerrainAssets } from "@/lib/demo-assets";
 import { Download, Box, FileCode, Github, Star } from "lucide-react";
 import { readTerrainUrlState, writeTerrainUrlState } from "@/lib/url-state";
-import { ShareDialog } from "@/components/share-dialog";
 
 const DEFAULT_PARAMS: TerrainParams = {
   centerLat: 27.9881,
@@ -29,9 +28,7 @@ type ViewTab = "3d" | "scad";
 const APP_VERSION = (import.meta.env.VITE_APP_VERSION || "dev").replace(/\.0$/, "");
 
 export default function App() {
-  const [initialUrlState] = useState(() => readTerrainUrlState(DEFAULT_PARAMS));
-  const [params, setParams] = useState<TerrainParams>(initialUrlState.params);
-  const [shareLocationName, setShareLocationName] = useState(initialUrlState.locationName);
+  const [params, setParams] = useState<TerrainParams>(() => readTerrainUrlState(DEFAULT_PARAMS));
 
   // Step 1 state
   const [isFetching, setIsFetching] = useState(false);
@@ -78,8 +75,8 @@ export default function App() {
   }, [stlData, pendingCompileRevision]);
 
   useEffect(() => {
-    writeTerrainUrlState(params, shareLocationName);
-  }, [params, shareLocationName]);
+    writeTerrainUrlState(params);
+  }, [params]);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,23 +224,16 @@ export default function App() {
       <aside className="flex h-screen w-80 shrink-0 flex-col overflow-y-auto border-r border-border p-4">
         <header className="flex items-center justify-between gap-2">
           <h1 className="text-sm font-semibold">3D Terrain Generator</h1>
-          <div className="flex items-center gap-2">
-            <ShareDialog
-              params={params}
-              locationName={shareLocationName}
-              onLocationNameChange={setShareLocationName}
-            />
-            <a
-              href="https://github.com/ModelRift/terrain-to-3d/"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Star project on GitHub"
-              className="inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-300/80 bg-white/75 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition-colors hover:border-slate-400 hover:bg-white hover:text-slate-900"
-            >
-              <Star className="h-3 w-3" />
-              Star on GitHub
-            </a>
-          </div>
+          <a
+            href="https://github.com/ModelRift/terrain-to-3d/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Star project on GitHub"
+            className="inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-300/80 bg-white/75 px-2.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition-colors hover:border-slate-400 hover:bg-white hover:text-slate-900"
+          >
+            <Star className="h-3 w-3" />
+            Star on GitHub
+          </a>
         </header>
         <div className="mt-4 space-y-4">
           <TerrainControls

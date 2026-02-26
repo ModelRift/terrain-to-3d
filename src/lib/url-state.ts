@@ -9,11 +9,6 @@ export interface TerrainUrlParams {
   zoom: number;
 }
 
-interface TerrainUrlState {
-  params: TerrainUrlParams;
-  locationName: string;
-}
-
 const OUTPUT_OPTIONS = [100, 200, 300, 512] as const;
 
 function clamp(value: number, min: number, max: number) {
@@ -30,7 +25,7 @@ function parseNumber(searchParams: URLSearchParams, keys: string[]) {
   return undefined;
 }
 
-function buildSearchParams(params: TerrainUrlParams, locationName: string) {
+function buildSearchParams(params: TerrainUrlParams) {
   const query = new URLSearchParams();
 
   query.set("lat", params.centerLat.toFixed(6));
@@ -42,17 +37,12 @@ function buildSearchParams(params: TerrainUrlParams, locationName: string) {
   query.set("zex", params.zExag.toFixed(2));
   query.set("base", String(Math.round(params.baseMm)));
 
-  const trimmedName = locationName.trim();
-  if (trimmedName) {
-    query.set("name", trimmedName);
-  }
-
   return query;
 }
 
-export function readTerrainUrlState(defaultParams: TerrainUrlParams): TerrainUrlState {
+export function readTerrainUrlState(defaultParams: TerrainUrlParams): TerrainUrlParams {
   if (typeof window === "undefined") {
-    return { params: defaultParams, locationName: "" };
+    return defaultParams;
   }
 
   const searchParams = new URLSearchParams(window.location.search);
@@ -65,7 +55,6 @@ export function readTerrainUrlState(defaultParams: TerrainUrlParams): TerrainUrl
   const modelMm = parseNumber(searchParams, ["mm", "modelMm", "size"]);
   const zExag = parseNumber(searchParams, ["zex", "zExag", "z_exag"]);
   const baseMm = parseNumber(searchParams, ["base", "baseMm"]);
-  const locationName = searchParams.get("name") ?? "";
 
   const sanitizedOutputPx = outputPx == null
     ? defaultParams.outputPx
@@ -74,31 +63,20 @@ export function readTerrainUrlState(defaultParams: TerrainUrlParams): TerrainUrl
       : defaultParams.outputPx;
 
   return {
-    params: {
-      centerLat: lat == null ? defaultParams.centerLat : clamp(lat, -90, 90),
-      centerLon: lon == null ? defaultParams.centerLon : clamp(lon, -180, 180),
-      areaKm: areaKm == null ? defaultParams.areaKm : clamp(Math.round(areaKm), 1, 100),
-      outputPx: sanitizedOutputPx,
-      zoom: zoom == null ? defaultParams.zoom : clamp(Math.round(zoom), 8, 14),
-      modelMm: modelMm == null ? defaultParams.modelMm : clamp(Math.round(modelMm), 20, 300),
-      zExag: zExag == null ? defaultParams.zExag : clamp(zExag, 1, 10),
-      baseMm: baseMm == null ? defaultParams.baseMm : clamp(Math.round(baseMm), 0, 20),
-    },
-    locationName,
+    centerLat: lat == null ? defaultParams.centerLat : clamp(lat, -90, 90),
+    centerLon: lon == null ? defaultParams.centerLon : clamp(lon, -180, 180),
+    areaKm: areaKm == null ? defaultParams.areaKm : clamp(Math.round(areaKm), 1, 100),
+    outputPx: sanitizedOutputPx,
+    zoom: zoom == null ? defaultParams.zoom : clamp(Math.round(zoom), 8, 14),
+    modelMm: modelMm == null ? defaultParams.modelMm : clamp(Math.round(modelMm), 20, 300),
+    zExag: zExag == null ? defaultParams.zExag : clamp(zExag, 1, 10),
+    baseMm: baseMm == null ? defaultParams.baseMm : clamp(Math.round(baseMm), 0, 20),
   };
 }
 
-export function writeTerrainUrlState(params: TerrainUrlParams, locationName: string) {
+export function writeTerrainUrlState(params: TerrainUrlParams) {
   if (typeof window === "undefined") return;
-  const query = buildSearchParams(params, locationName).toString();
+  const query = buildSearchParams(params).toString();
   const next = `${window.location.pathname}?${query}${window.location.hash}`;
   window.history.replaceState(null, "", next);
-}
-
-export function createShareUrl(params: TerrainUrlParams, locationName: string) {
-  if (typeof window === "undefined") return "";
-  const query = buildSearchParams(params, locationName);
-  const url = new URL(window.location.href);
-  url.search = query.toString();
-  return url.toString();
 }
