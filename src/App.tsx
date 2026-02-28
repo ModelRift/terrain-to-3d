@@ -5,15 +5,19 @@ import { ScadViewer } from "@/components/scad-viewer";
 import { HeightmapPreview } from "@/components/heightmap-preview";
 import { LogPane } from "@/components/log-pane";
 import { generateHeightmap, type HeightmapResult } from "@/lib/terrain";
+import { generateHeightmapFromGeoTiff } from "@/lib/geotiff-heightmap";
 import { heightmapToDataUrl } from "@/lib/heightmap";
 import { heightmapToDat } from "@/lib/scad-template";
 import { useOpenscadWorker } from "@/hooks/use-openscad-worker";
 import { downloadBlob } from "@/lib/download";
 import { loadDemoTerrainAssets } from "@/lib/demo-assets";
+import { findLocationPresetByCoords } from "@/lib/location-presets";
 import { Download, Box, FileCode, Github, Star } from "lucide-react";
 import { readTerrainUrlState, writeTerrainUrlState } from "@/lib/url-state";
 
 const DEFAULT_PARAMS: TerrainParams = {
+  sourceMode: "coords",
+  noDataMode: "nearest",
   centerLat: 27.9881,
   centerLon: 86.925,
   areaKm: 20,
@@ -27,8 +31,25 @@ const DEFAULT_PARAMS: TerrainParams = {
 type ViewTab = "3d" | "scad";
 const APP_VERSION = (import.meta.env.VITE_APP_VERSION || "dev").replace(/\.0$/, "");
 
+function computeModelFootprint(longSideMm: number, width: number, height: number) {
+  if (width <= 0 || height <= 0) {
+    return { widthMm: longSideMm, heightMm: longSideMm };
+  }
+  if (width >= height) {
+    return {
+      widthMm: longSideMm,
+      heightMm: (longSideMm * height) / width,
+    };
+  }
+  return {
+    widthMm: (longSideMm * width) / height,
+    heightMm: longSideMm,
+  };
+}
+
 export default function App() {
   const [params, setParams] = useState<TerrainParams>(() => readTerrainUrlState(DEFAULT_PARAMS));
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   // Step 1 state
   const [isFetching, setIsFetching] = useState(false);
@@ -51,6 +72,10 @@ export default function App() {
     useOpenscadWorker();
 
   const [activeTab, setActiveTab] = useState<ViewTab>("3d");
+  const activeLocationPreset =
+    params.sourceMode === "coords"
+      ? findLocationPresetByCoords(params.centerLat, params.centerLon)
+      : null;
   const visibleStlData = stlData ?? demoStlData;
   const hasRenderableTerrain = Boolean(heightmapResult) && step1Done;
   const isModelOutdated =
@@ -59,6 +84,11 @@ export default function App() {
     terrainRevision !== compiledRevision;
 
   const isGenerating = isFetching || isCompiling || (isLoadingDemo && !visibleStlData);
+  const modelFootprint = heightmapResult
+    ? computeModelFootprint(params.modelMm, heightmapResult.width, heightmapResult.height)
+    : params.sourceMode === "coords"
+      ? { widthMm: params.modelMm, heightMm: params.modelMm }
+      : null;
   const status =
     isFetching
       ? (fetchLogs[fetchLogs.length - 1] ?? "")
@@ -97,6 +127,9 @@ export default function App() {
           height: demo.height,
           elevMin: demo.elevMin,
           elevMax: demo.elevMax,
+          spanXMeters: demo.spanXMeters,
+          spanYMeters: demo.spanYMeters,
+          sourceLabel: demo.sourceLabel,
         });
         setPreviewUrl(dataUrl);
         setElevMin(null);
@@ -128,6 +161,7 @@ export default function App() {
   // Step 1: Download tiles + generate heightmap
   const handleStep1 = useCallback(async () => {
     setIsFetching(true);
+    setFetchLogs([]);
     setFetchError(null);
     setPreviewUrl(null);
     setElevMin(null);
@@ -137,16 +171,31 @@ export default function App() {
 
     try {
       const t0 = performance.now();
-      const result = await generateHeightmap(
-        {
-          centerLat: params.centerLat,
-          centerLon: params.centerLon,
-          areaKm: params.areaKm,
-          outputPx: params.outputPx,
-          zoom: params.zoom,
-        },
-        (msg) => setFetchLogs((prev) => [...prev, msg])
-      );
+      let result: HeightmapResult;
+      if (params.sourceMode === "coords") {
+        result = await generateHeightmap(
+          {
+            centerLat: params.centerLat,
+            centerLon: params.centerLon,
+            areaKm: params.areaKm,
+            outputPx: params.outputPx,
+            zoom: params.zoom,
+          },
+          (msg) => setFetchLogs((prev) => [...prev, msg])
+        );
+      } else {
+        if (!uploadFile) {
+          throw new Error("Choose a GeoTIFF file before processing upload");
+        }
+        result = await generateHeightmapFromGeoTiff(
+          {
+            file: uploadFile,
+            outputLongSidePx: params.outputPx,
+            noDataMode: params.noDataMode,
+          },
+          (msg) => setFetchLogs((prev) => [...prev, msg])
+        );
+      }
 
       const fetchMs = performance.now() - t0;
       setFetchLogs((prev) => [
@@ -167,24 +216,25 @@ export default function App() {
       setFetchError(err instanceof Error ? err.message : String(err));
       setIsFetching(false);
     }
-  }, [params]);
+  }, [params, uploadFile]);
 
   // Step 2: Compile STL in worker
   const handleStep2 = useCallback(() => {
     if (!heightmapResult || !step1Done || isCompiling || isFetching) return;
+    const footprint = computeModelFootprint(params.modelMm, heightmapResult.width, heightmapResult.height);
     setPendingCompileRevision(terrainRevision);
     compile({
       heightmap: heightmapResult.heightmap,
       width: heightmapResult.width,
       height: heightmapResult.height,
       params: {
-        centerLat: params.centerLat,
-        centerLon: params.centerLon,
-        areaKm: params.areaKm,
-        outputPx: params.outputPx,
-        modelMm: params.modelMm,
+        sourceLabel: heightmapResult.sourceLabel,
+        modelWidthMm: footprint.widthMm,
+        modelHeightMm: footprint.heightMm,
         zExag: params.zExag,
         baseMm: params.baseMm,
+        spanXMeters: heightmapResult.spanXMeters,
+        spanYMeters: heightmapResult.spanYMeters,
         elevMin: heightmapResult.elevMin,
         elevMax: heightmapResult.elevMax,
       },
@@ -244,6 +294,13 @@ export default function App() {
             isFetching={isFetching}
             isCompiling={isCompiling}
             step1Done={step1Done}
+            uploadFileName={uploadFile?.name ?? null}
+            onUploadFileChange={setUploadFile}
+            modelFootprintMm={
+              modelFootprint
+                ? { width: modelFootprint.widthMm, height: modelFootprint.heightMm }
+                : null
+            }
           />
           <HeightmapPreview
             dataUrl={previewUrl}
@@ -348,6 +405,17 @@ export default function App() {
               onRenderStl={handleStep2}
               canRenderStl={hasRenderableTerrain && !isFetching && !isCompiling}
               onLog={handleViewerLog}
+              referencePhoto={
+                activeLocationPreset
+                  ? {
+                      thumbSrc: activeLocationPreset.photoThumbSrc,
+                      fullSrc: activeLocationPreset.photoFullSrc,
+                      sourceUrl: activeLocationPreset.photoSourceUrl,
+                      label: activeLocationPreset.label,
+                      alt: activeLocationPreset.photoAlt,
+                    }
+                  : null
+              }
             />
           ) : (
             <ScadViewer code={scadCode} />

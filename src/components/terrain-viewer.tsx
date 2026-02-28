@@ -15,6 +15,13 @@ interface Props {
   onRenderStl?: () => void;
   canRenderStl?: boolean;
   onLog?: (message: string) => void;
+  referencePhoto?: {
+    thumbSrc: string;
+    fullSrc: string;
+    sourceUrl: string;
+    label: string;
+    alt: string;
+  } | null;
 }
 
 interface ParseInfo {
@@ -181,8 +188,10 @@ export function TerrainViewer({
   onRenderStl,
   canRenderStl,
   onLog,
+  referencePhoto,
 }: Props) {
   const [viewerReady, setViewerReady] = useState(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [renderCycle, setRenderCycle] = useState(0);
   const cycleCounterRef = useRef(0);
   const lastStlRef = useRef<Uint8Array | null>(null);
@@ -263,13 +272,91 @@ export function TerrainViewer({
 
   const currentStl = stlData;
 
+  useEffect(() => {
+    setIsPhotoModalOpen(false);
+  }, [referencePhoto?.fullSrc]);
+
+  useEffect(() => {
+    if (!isPhotoModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsPhotoModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isPhotoModalOpen]);
+
+  const photoTrigger = referencePhoto ? (
+    <button
+      type="button"
+      onClick={() => setIsPhotoModalOpen(true)}
+      className="absolute left-3 top-3 z-30 overflow-hidden transition hover:opacity-95"
+      aria-label={`Open real photo modal for ${referencePhoto.label}`}
+    >
+      <img
+        src={referencePhoto.thumbSrc}
+        alt={referencePhoto.alt}
+        className="block aspect-video w-80 max-w-[42vw] object-cover"
+        loading="lazy"
+      />
+    </button>
+  ) : null;
+
+  const photoModal =
+    isPhotoModalOpen && referencePhoto ? (
+      <div
+        className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-[2px]"
+        onClick={() => setIsPhotoModalOpen(false)}
+      >
+        <div
+          className="w-full max-w-5xl overflow-hidden rounded-xl border border-white/20 bg-slate-900 shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-white/15 px-4 py-2.5">
+            <div className="text-sm font-medium text-slate-100">{referencePhoto.label}</div>
+            <button
+              type="button"
+              onClick={() => setIsPhotoModalOpen(false)}
+              className="rounded-md border border-white/20 px-2 py-1 text-xs text-slate-100 transition-colors hover:bg-white/10"
+            >
+              Close
+            </button>
+          </div>
+          <img
+            src={referencePhoto.fullSrc}
+            alt={referencePhoto.alt}
+            className="max-h-[calc(100vh-12rem)] w-full bg-[#d9e6f0] object-contain"
+          />
+          <div className="border-t border-white/15 px-4 py-2 text-xs text-slate-300">
+            Source:{" "}
+            <a
+              href={referencePhoto.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-slate-400 hover:text-white"
+            >
+              Wikimedia Commons
+            </a>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
   if (!currentStl) {
-    if (isLoading) {
-      return <Spinner status={loadingStatus} />;
-    }
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Generate terrain to see 3D preview
+      <div className="relative h-full">
+        {photoTrigger}
+        {isLoading ? (
+          <Spinner status={loadingStatus} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-muted-foreground">
+            Generate terrain to see 3D preview
+          </div>
+        )}
+        {photoModal}
       </div>
     );
   }
@@ -280,6 +367,7 @@ export function TerrainViewer({
 
   return (
     <div className="relative h-full">
+      {photoTrigger}
       <Canvas
         shadows
         camera={{ position: [0, -150, 100], fov: 50, up: [0, 0, 1] }}
@@ -330,12 +418,12 @@ export function TerrainViewer({
         />
       </Canvas>
       {showOverlay && (
-        <div className="pointer-events-none absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]">
+        <div className="pointer-events-none absolute inset-0 z-10 bg-slate-950/45 backdrop-blur-[2px]">
           <Spinner status={overlayStatus} />
         </div>
       )}
       {showOutdatedOverlay && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/30 backdrop-blur-[2px]">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 backdrop-blur-[2px]">
           <div className="mx-4 max-w-sm rounded-2xl bg-slate-950/75 px-5 py-4 text-center shadow-2xl">
             <div className="text-sm font-semibold text-amber-100">
               Model preview is outdated
@@ -355,6 +443,7 @@ export function TerrainViewer({
           </div>
         </div>
       )}
+      {photoModal}
     </div>
   );
 }
