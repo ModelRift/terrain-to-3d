@@ -1,46 +1,87 @@
 export interface ScadParams {
-  centerLat: number;
-  centerLon: number;
-  areaKm: number;
-  outputPx: number;
-  modelMm: number;
+  sourceLabel: string;
+  modelWidthMm: number;
+  modelHeightMm: number;
   zExag: number;
   baseMm: number;
   elevMin: number;
   elevMax: number;
+  spanXMeters: number | null;
+  spanYMeters: number | null;
 }
 
-export function generateScad(params: ScadParams): string {
-  const { centerLat, centerLon, areaKm, outputPx, modelMm, zExag, baseMm, elevMin, elevMax } =
-    params;
+function hasPhysicalSpan(params: Pick<ScadParams, "spanXMeters" | "spanYMeters">) {
+  return (
+    params.spanXMeters != null &&
+    params.spanYMeters != null &&
+    Number.isFinite(params.spanXMeters) &&
+    Number.isFinite(params.spanYMeters) &&
+    params.spanXMeters > 0 &&
+    params.spanYMeters > 0
+  );
+}
 
-  // OpenSCAD surface() spans (pixels - 1) units in X/Y, not "pixels".
-  // Scale by grid span so the final terrain footprint matches modelMm exactly.
-  const gridSpan = Math.max(outputPx - 1, 1);
-  const xyScale = modelMm / gridSpan;
-  const modelHeightMM = ((elevMax - elevMin) / (areaKm * 1000)) * modelMm * zExag;
+function computeModelHeightMm(params: ScadParams) {
+  const elevRange = Math.max(0, params.elevMax - params.elevMin);
+
+  if (hasPhysicalSpan(params)) {
+    const mmPerMeterX = params.modelWidthMm / params.spanXMeters!;
+    const mmPerMeterY = params.modelHeightMm / params.spanYMeters!;
+    const mmPerMeter = (mmPerMeterX + mmPerMeterY) / 2;
+    return elevRange * mmPerMeter * params.zExag;
+  }
+
+  // Fallback when raster horizontal units are unavailable.
+  const fallbackHeight = Math.min(params.modelWidthMm, params.modelHeightMm) * 0.15;
+  return fallbackHeight * params.zExag;
+}
+
+export function generateScad(params: ScadParams, width: number, height: number): string {
+  const {
+    sourceLabel,
+    modelWidthMm,
+    modelHeightMm,
+    zExag,
+    baseMm,
+    elevMin,
+    elevMax,
+    spanXMeters,
+    spanYMeters,
+  } = params;
+
+  // OpenSCAD surface() spans (pixels - 1) units in X/Y.
+  const gridSpanX = Math.max(width - 1, 1);
+  const gridSpanY = Math.max(height - 1, 1);
+  const xyScaleX = modelWidthMm / gridSpanX;
+  const xyScaleY = modelHeightMm / gridSpanY;
+  const modelHeightMM = computeModelHeightMm(params);
   const zScale = modelHeightMM / 255;
+  const spanLine =
+    spanXMeters != null && spanYMeters != null
+      ? `// Span:   ~${(spanXMeters / 1000).toFixed(2)} km × ${(spanYMeters / 1000).toFixed(2)} km\n`
+      : "// Span:   unknown (using relative Z fallback)\n";
 
   // Use .dat text format for WASM compatibility (surface() with PNG can be unreliable)
   return `// 3D terrain model
-// Center: ${centerLat}°N, ${centerLon}°E
-// Area:   ~${areaKm} km × ${areaKm} km
-// Elev:   ${elevMin.toFixed(0)} m – ${elevMax.toFixed(0)} m
+// Source: ${sourceLabel}
+// Grid:   ${width} × ${height}
+${spanLine}// Elev:   ${elevMin.toFixed(0)} m – ${elevMax.toFixed(0)} m
 // Z exag: ${zExag}×
-// Model:  ${modelMm} mm × ${modelMm} mm, height ~${modelHeightMM.toFixed(1)} mm
+// Model:  ${modelWidthMm.toFixed(1)} mm × ${modelHeightMm.toFixed(1)} mm, height ~${modelHeightMM.toFixed(1)} mm
 
-xy = ${xyScale.toFixed(6)};
-z  = ${zScale.toFixed(6)};
+xy_x = ${xyScaleX.toFixed(6)};
+xy_y = ${xyScaleY.toFixed(6)};
+z    = ${zScale.toFixed(6)};
 base = ${baseMm};
 
 union() {
   // terrain surface
-  scale([xy, xy, z])
+  scale([xy_x, xy_y, z])
     surface(file = "heightmap.dat", center = true);
 
   // base slab, same XY footprint as terrain. Slight Z overlap removes seam.
   translate([0, 0, -(base - 0.5) / 2])
-    cube([${modelMm}, ${modelMm}, base + 0.5], center = true);
+    cube([${modelWidthMm.toFixed(4)}, ${modelHeightMm.toFixed(4)}, base + 0.5], center = true);
 }
 `;
 }

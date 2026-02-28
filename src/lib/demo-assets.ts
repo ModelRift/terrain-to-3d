@@ -48,7 +48,16 @@ function parseDatHeightmap(content: string): HeightmapResult {
     }
   }
 
-  return { heightmap, width, height, elevMin, elevMax };
+  return {
+    heightmap,
+    width,
+    height,
+    elevMin,
+    elevMax,
+    spanXMeters: null,
+    spanYMeters: null,
+    sourceLabel: "Bundled demo terrain",
+  };
 }
 
 export async function loadDemoTerrainAssets(): Promise<DemoTerrainAssets> {

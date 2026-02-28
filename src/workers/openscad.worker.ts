@@ -35,7 +35,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     });
 
     const tScad = performance.now();
-    const scadCode = generateScad(params);
+    const scadCode = generateScad(params, width, height);
     post({ type: "scadCode", code: scadCode });
     post({
       type: "log",

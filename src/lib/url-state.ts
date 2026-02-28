@@ -1,4 +1,6 @@
 export interface TerrainUrlParams {
+  sourceMode: "coords" | "upload";
+  noDataMode: "nearest" | "min" | "zero";
   centerLat: number;
   centerLon: number;
   areaKm: number;
@@ -30,6 +32,8 @@ function buildSearchParams(params: TerrainUrlParams) {
 
   query.set("lat", params.centerLat.toFixed(6));
   query.set("lon", params.centerLon.toFixed(6));
+  query.set("mode", params.sourceMode);
+  query.set("nodata", params.noDataMode);
   query.set("area", String(Math.round(params.areaKm)));
   query.set("px", String(Math.round(params.outputPx)));
   query.set("zoom", String(Math.round(params.zoom)));
@@ -49,6 +53,8 @@ export function readTerrainUrlState(defaultParams: TerrainUrlParams): TerrainUrl
 
   const lat = parseNumber(searchParams, ["lat"]);
   const lon = parseNumber(searchParams, ["lon", "lng", "long"]);
+  const sourceModeRaw = searchParams.get("mode");
+  const noDataModeRaw = searchParams.get("nodata");
   const areaKm = parseNumber(searchParams, ["area", "areaKm"]);
   const outputPx = parseNumber(searchParams, ["px", "outputPx", "res"]);
   const zoom = parseNumber(searchParams, ["zoom", "z"]);
@@ -62,7 +68,15 @@ export function readTerrainUrlState(defaultParams: TerrainUrlParams): TerrainUrl
       ? Math.round(outputPx)
       : defaultParams.outputPx;
 
+  const sourceMode = sourceModeRaw === "upload" ? "upload" : "coords";
+  const noDataMode =
+    noDataModeRaw === "min" || noDataModeRaw === "zero" || noDataModeRaw === "nearest"
+      ? noDataModeRaw
+      : "nearest";
+
   return {
+    sourceMode,
+    noDataMode,
     centerLat: lat == null ? defaultParams.centerLat : clamp(lat, -90, 90),
     centerLon: lon == null ? defaultParams.centerLon : clamp(lon, -180, 180),
     areaKm: areaKm == null ? defaultParams.areaKm : clamp(Math.round(areaKm), 1, 100),

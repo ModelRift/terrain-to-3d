@@ -14,6 +14,9 @@ export interface HeightmapResult {
   height: number;
   elevMin: number;
   elevMax: number;
+  spanXMeters: number | null;
+  spanYMeters: number | null;
+  sourceLabel: string;
 }
 
 // ── Slippy-map tile math ──────────────────────────────────────────
@@ -179,5 +182,15 @@ export async function generateHeightmap(
     `Elevation: ${lo.toFixed(0)} m – ${hi.toFixed(0)} m (range ${(hi - lo).toFixed(0)} m)`
   );
 
-  return { heightmap, width: outputPx, height: outputPx, elevMin: lo, elevMax: hi };
+  const spanMeters = areaKm * 1000;
+  return {
+    heightmap,
+    width: outputPx,
+    height: outputPx,
+    elevMin: lo,
+    elevMax: hi,
+    spanXMeters: spanMeters,
+    spanYMeters: spanMeters,
+    sourceLabel: `Tiles @ ${centerLat.toFixed(4)}, ${centerLon.toFixed(4)}`,
+  };
 }
